@@ -1,0 +1,252 @@
+---
+title: "R Notebook"
+output:
+  word_document: default
+  pdf_document:
+    latex_engine: xelatex
+  html_notebook: default
+always_allow_html: yes
+---
+
+```{r setup, include=FALSE}
+
+# This chunk shows/hides the code in your final report. When echo = TRUE, the code
+# is shown in the report. When echo = FALSE, the code is hidden from the final report.
+# We would like to see your code, so please leave the setting as is during the course.
+# This chunk will not show up in your reports, so you can safely ignore its existence.
+
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+This Exploratory Data analysis is based on the very famous Gapminder Dataset.
+Dataset link: https://www.gapminder.org/tag/download-data/
+Using Basic functionalities available in R, we will explore data and try to resolve some quetsions step by step.
+
+# Installing the basic libraries in R
+```{r}
+#setwd("C:/") #Don't forget to set your working directory before you start!
+
+library("tidyverse")
+library("tidymodels")
+library("plotly")
+library("skimr")
+```
+2. Load the data
+In a new chunk, load the gapminder library, and use this line to create dfGap: dfGap <- gapminder
+```{r}
+library("gapminder")
+
+dfGap <- gapminder
+```
+3. Explore the data
+a. Use the skim function on the dfGap dataframe to get summary statistics in a nice format. I suggest you use the widest screen possible for the best reading.
+```{r}
+
+skim(dfGap)
+
+```
+
+3.b.For the year 2007 sort and filter data in descending order of life expectancy.
+```{r}
+dfGap2007 <- 
+  filter(dfGap, year == 2007) %>%
+  arrange(desc(lifeExp))
+dfGap2007
+
+```
+3.b.i.What are the names of the countries with a life expectancy over 81?
+
+Japan, Hong Kong, China, Iceland, Switzerland, Australia
+
+3.c. Add a calculated column totalGDP to dfGap showing the total GDP per country, filter the dataframe for 2007, and sort in descending order for totalGDP. If you like, save the new dataframe as a new one for repeated use
+```{r}
+dfGapTotGDP <-
+  dfGap %>% 
+  mutate(totalGDP = gdpPercap * pop ) %>% 
+  filter(year == 2007) %>% 
+  arrange(desc(totalGDP))
+
+dfGapTotGDP
+```
+3.c.i.What are some names of the countries with the top levels of total GDP?
+United States, China, Japan, India, Germany
+
+3.c.ii.Which ones of these countries overlap with the countries from 3-b?
+Japan
+
+3.c.iii.What if you selected only the two columns country and gdpPercap and sorted the dataframe in descending order for gdpPercap? Do you observe more of an overlap now? What do you infer from this difference?
+```{r}
+dfGapTotGDP %>% 
+  select(country, gdpPercap) %>% 
+  arrange(desc(gdpPercap))
+```
+Canada, Switzerland, Iceland
+
+3.d. Filter dfGap for 2007, group it by continent, and then calculate the median life expectancy and median total GDP (so you need to have totalGDP already).
+```{r}
+
+dfGap2007<-
+  dfGapTotGDP %>% 
+  group_by(continent) %>% 
+  summarize(median_lifeExp = median(lifeExp), medianTotgdp = median(totalGDP)) %>%
+  ungroup() %>%
+  arrange(desc(median_lifeExp))
+
+dfGap2007
+
+```
+i. What continent has the highest median of life expectancy?
+Oceania
+
+ii.Does it seem to be correlated with the median total GDP?
+Yes, Median total GDP and median life exp are positively correlated.
+
+4.a.Visualize the data 
+Now that you have explored the relationship between life expectancy and totalGDP in a table format, let’s also visualize it to see a bigger picture.
+
+i.Create a scatter plot to understand the relationship between life expectancy (y-axis) and totalGDP (x-axis) in 2007. Does this plot help?
+```{r}
+dfGapTotGDP %>% 
+  ggplot(aes(x= totalGDP, y = lifeExp)) + geom_point()
+```
+Above 70, we are observing more GDP.
+
+ii. Copy the same code, but this time also filter for countries with a totalGDP of over a Trillion (use the scientific notation 1e+12). What about now?
+```{r}
+dfGapTotGDP %>% 
+  filter(totalGDP>1e+12) %>% 
+  ggplot(aes(x= totalGDP, y = lifeExp)) + geom_point()
+
+```
+Yes, we get clear understanding with definite scattered points.
+
+iii.Copy the same code, and add labels this time. Do you see a cluster now? What are the names of the countries that are outside of the cluster?
+```{r}
+dfGapTotGDP %>% 
+  filter(totalGDP>1e+12) %>% 
+  ggplot(aes(x= totalGDP, y = lifeExp)) + geom_point() +
+  geom_label(aes(x = totalGDP, y = lifeExp, label=country))
+```
+India, United States, China, Japan, Brazil, Mexico
+
+iv. TTo overcome the poor visibility in the earlier graphs, Install and load the ggrepel library. After that, copy the same code and use geom_label_repel() function instead of geom_label(). Does it look better now? Describe what has changed.
+
+```{r}
+library("ggrepel")
+
+dfGapTotGDP %>% 
+  filter(totalGDP>1e+12) %>% 
+  ggplot(aes(x= totalGDP, y = lifeExp)) + 
+  geom_point() +
+  geom_label_repel(aes(x = totalGDP, y = lifeExp, label=country))
+```
+Its look better now, The label is pointed at the particular point without any overlap.
+
+v.Copy the same code. This time, add a color for the continent. What are the continents that are missing from your visual? Why do you think so?
+
+```{r}
+library("ggrepel")
+
+dfGapTotGDP %>% 
+  filter(totalGDP>1e+12) %>% 
+  ggplot() + 
+  geom_point(mapping = aes(x= totalGDP, y = lifeExp, color = continent) ) +
+  geom_label_repel(aes(x = totalGDP, y = lifeExp, label=country))
+```
+Missing Continents are: Oceania and Africa
+This continents have countries with total GDP less than 1 trillion $ 
+
+4.b.You have an idea about the relationship between life expectancy and totalGDP even though you have not tested it statistically. Now, let’s examine a more realistic relationship between life expectancy and gdpPercap (GDP per capita). Plot life expectancy (y-axis) against gdpPercap (x-axis) for 2007, add a smoothed line (no need to define any parameters, use the defaults). What do you observe about the overall relationship? Don’t use any labels, just focus on the aggregate.
+```{r}
+dfGapTotGDP %>% 
+  ggplot(aes(x=gdpPercap, y=lifeExp))+ geom_point()+ geom_smooth()
+
+```
+
+Life expectancy increases drastically for dgpPercap from 0 to 10000, later on growth slows down and became almost stagnant around life expectancy of 80.
+
+4.c.Now let’s find out the variations in life expectancy across different continents. Create box plots for each continent (in the same plot) and add a title this time. What do you observe? Describe your observations and answer the questions:
+
+```{r}
+dfGap %>% 
+  ggplot(mapping = aes(x= continent, y = lifeExp))+geom_boxplot()+
+  labs(title = "Variation in life expectancy VS continents")
+
+```
+
+i.Which continent has the highest median life expectancy?
+Oceania has the highest life expectancy
+
+ii.Which continent has the largest range of life expectancy?
+Asia has the largest range of life expectancy
+
+iii.Save your plot as boxPlotsForAll and put it into the ggplotly() function. More useful, right? Report the actual medians per continent by reading from the new interactive plot ggplotly() has created for you.
+```{r}
+boxPlotsForAll<-
+  dfGap %>% 
+  ggplot(mapping = aes(x= continent, y = lifeExp))+geom_boxplot()+
+  labs(title = "Variation in life expectancy VS continents")
+
+ggplotly(boxPlotsForAll)
+
+```
+Median life expentency per continent:
+Africa: 47.79
+Americas: 67.05
+Asia: 61.79
+Europe: 72.24
+Oceania: 73.66
+
+4.d.Finally, it is time to create a more advanced (and likely more helpful) plot. Create a line plot to show how median GDP per capita by continent changes over time. [Hint: For the continents, use the color parameter]. Describe what you observe.
+```{r}
+dfgapyrcontinent <- 
+  dfGap %>%
+  group_by(year, continent) %>%
+  summarize(medianGdpPercap = median(gdpPercap))
+  
+ggplot(dfgapyrcontinent, aes(x = year, y = medianGdpPercap, color = continent)) + 
+  geom_line() 
+```
+From 1950-2000, median GDP per capita increases slowly for Americas and Asia. We can see fast increasing trend of median GDP per capita for Europe and Oceania whereas for Africa it's almost steady and low.
+
+i.What continents have a clearer trend than others? Why do you think so?
+Oceania and Europe have clear trend than other because over the years their population has not increased drastically like Asia, Americas and Africa, but their GDP has been boosted. Hence median GDP per cap is for Oceania and Europe shows increasing trend.
+
+ii.Change the summary metric from median to mean. What has changed? Why do you think so?
+```{r}
+dfgapyrcontinent <- 
+  gapminder %>%
+  group_by(year, continent) %>%
+  summarize(meanGdpPercap = mean(gdpPercap))
+  
+ggplot(dfgapyrcontinent, aes(x = year, y = meanGdpPercap, color = continent)) + 
+  geom_line() 
+```
+After changes, line plot for Asia and Americas almost overlapped. For Asia, Trend is comparatively increasing than previous plot.
+
+It signifies that huge part of population in Asia has average (Less) GDP & remaining few people has very high GDP. Hence when we plotted Median GDP per Cap, trend was almost constant with insignificant growth.
+
+But, when we plotted mean, we see increasing trend. Whereas for America there are no changes in two plots, average and median GDP per cap is almost same.
+
+
+iii.Finally, don’t you think these plots would be much more useful in plotly? Pick one and save it as gdpOverTime and call ggplotly() on it. You can now read the actual GDP values per year. What are some of the breakthrough years (steep changes) for GDP in different continents?
+
+```{r}
+dfgapyrcontinent <- 
+  gapminder %>%
+  group_by(year, continent) %>%
+  summarize(medianGdpPercap = mean(gdpPercap))
+  
+gdpOverTime<-ggplot(dfgapyrcontinent, aes(x = year, y = medianGdpPercap, color = continent)) + 
+  geom_line() 
+
+ggplotly(gdpOverTime)
+plot(gdpOverTime)
+```
+
+Steep Changes:
+Oceania: 1992 to 2007
+Europe: 1992-2007
+Asia: 2002-2007
+America: 2002-2007
